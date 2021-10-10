@@ -1,6 +1,7 @@
 import math
 import numpy as np
 from tqdm import tqdm 
+import pdb
 
 class NGramModel:
     def __init__(self, n):
@@ -130,14 +131,15 @@ class InterpolationNGramModel(NGramModel):
 
     def build(self, **kwargs):
         train = kwargs['train'] + ['<unk>'] * self.n
-        dev = kwargs['dev']
+        dev = kwargs['dev'] + ['<unk>'] * self.n
         for n in range(1, self.n + 1):
             for i in tqdm(range(n - 1, len(train))):
                 self._add(train[i - n + 1 : i + 1])
         count = len(train)
         for i in tqdm(range(len(train))):
-            if not i in self._P:
-                self._P[i] = self._F.get(i, 0) / count
+            token = tuple(train[i : i + 1])
+            if not token in self._P:
+                self._P[token] = self._F.get(token, 0) / count
         self.smoothing(dev)
         
     def _add(self, tokens):
@@ -153,10 +155,11 @@ class InterpolationNGramModel(NGramModel):
             self._smoothing_n(n, dev, eps)
     
     def get_P(self, tokens):
-        tokens = tuple(token if token in self._F else '<unk>' for token in tokens)
+        tokens = tuple(token if tuple(token) in self._F else '<unk>' for token in tokens)
         p = self._P.get(tokens, -1)
         if p < 0:
             if len(tokens) > 1:
+                p = self.get_P(tokens[1:])
                 p = self._W.get(tokens[:-1], 1.0) * self.get_P(tokens[1:])
             else:
                 p = 1e-30
@@ -193,21 +196,25 @@ class InterpolationNGramModel(NGramModel):
                     L[idx] = (L[idx] + R[idx]) * 0.5
                 else:
                     R[idx] = (L[idx] + R[idx]) * 0.5
+                res[idx] = 0.0
                 max_interval = max(max_interval, R[idx] - L[idx])
             print(max_interval)
             if max_interval < eps:
                 break
+        print(L)
+        print(R)
         for tokens in self._F:
             if len(tokens) == n - 1:
                 j = tokens
-                idx = count2idx.get(j, 0)
+                idx = count2idx.get(self._F[j], 0)
                 self._W[j] = L[idx] # log(lambda_idx * m_i + 0) = log(lambda_idx) + log(m_i); log back-off weight
             if len(tokens) == n:
                 j, i = tokens[:-1], tokens[-1]
-                idx = count2idx.get(j, 0)
+                idx = count2idx.get(self._F[j], 0)
                 lambda_idx = L[idx]
                 f_i_j = self._F.get(tokens) / self._F.get(j)
                 self._P[tokens] = lambda_idx * self.get_P(tokens[1:]) + (1.0 - lambda_idx) * f_i_j
+                # print(tokens, self.get_P(tokens[1:]), f_i_j, lambda_idx, self._P[tokens])
 
 def count_ngrams(fd, n):
     corpus = fd.read().strip().split()
@@ -244,7 +251,7 @@ if __name__ == '__main__':
         dev = ['<s>'] + f.read().strip().split() + ['<s/>']
     model = InterpolationNGramModel(2)
     model.build(train=train, dev=dev)
-    test_path = './hw1_dataset/test_set.txt'
+    test_path = './hw1_dataset/train_set.txt'
     with open(test_path, 'r', encoding='utf8') as f:
         test_text = ['<s>'] + f.read().strip().split() + ['<s/>']
     print(calc_ppl(test_text, model))
