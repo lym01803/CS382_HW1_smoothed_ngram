@@ -107,6 +107,8 @@ class MacKayNGramModel(NGramModel):
             self._vocab[i] = [j]
     
     def get_log_P(self, tokens):
+        tokens = tuple(tokens)
+        assert(len(tokens) == self.n)
         i = tokens[-1]
         j = tokens[:-1]
         lambda_j = self._lambda_j[j]
@@ -124,6 +126,16 @@ def count_ngrams(fd, n):
         _set.add(tuple(corpus[i - n + 1: i + 1]))
     return len(_set)
 
+def calc_ppl(text, model:NGramModel):
+    n = model.n
+    token_num = 0
+    log_p_sum = 0.0
+    for i in range(n - 1, len(text)):
+        log_p_sum += model.get_log_P(text[i - n + 1 : i + 1])
+        token_num += 1
+    avg_log_p = log_p_sum / token_num
+    return math.exp(-avg_log_p)
+
 if __name__ == '__main__':
     paths = ['./hw1_dataset/train_set.txt', './hw1_dataset/dev_set.txt']
     corpus = []
@@ -135,4 +147,4 @@ if __name__ == '__main__':
     test_path = './hw1_dataset/test_set.txt'
     with open(test_path, 'r', encoding='utf8') as f:
         test_text = f.read().strip.split()
-    
+    print(calc_ppl(test_text))
