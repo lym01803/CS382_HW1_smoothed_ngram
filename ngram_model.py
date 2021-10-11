@@ -2,6 +2,7 @@ import math
 import numpy as np
 from tqdm import tqdm 
 import pdb
+import random
 
 class NGramModel:
     def __init__(self, n):
@@ -140,7 +141,7 @@ class InterpolationNGramModel(NGramModel):
             token = tuple(train[i : i + 1])
             if not token in self._P:
                 self._P[token] = self._F.get(token, 0) / count
-        self.smoothing(dev)
+        self.smoothing(dev, 1e-3)
         
     def _add(self, tokens):
         tokens = tuple(tokens)
@@ -155,15 +156,17 @@ class InterpolationNGramModel(NGramModel):
             self._smoothing_n(n, dev, eps)
     
     def get_P(self, tokens):
-        tokens = tuple(token if tuple(token) in self._F else '<unk>' for token in tokens)
+        # print(tokens)
+        tokens = tuple((token if (token,) in self._F else '<unk>') for token in tokens)
+        # print(tokens)
         p = self._P.get(tokens, -1)
+        # print(p)
         if p < 0:
             if len(tokens) > 1:
-                p = self.get_P(tokens[1:])
                 p = self._W.get(tokens[:-1], 1.0) * self.get_P(tokens[1:])
             else:
                 p = 1e-30
-        return p
+        return max(p, 1e-30)
 
     def get_log_P(self, tokens):
         return math.log(self.get_P(tokens))
@@ -201,8 +204,14 @@ class InterpolationNGramModel(NGramModel):
             print(max_interval)
             if max_interval < eps:
                 break
-        print(L)
-        print(R)
+        '''
+        for i in range(len(L)):
+            L[i] += random.random() * 0.2 - 0.1
+            L[i] = max(1e-4, L[i])
+            L[i] = min(1.0 - (1e-4), L[i])
+        '''
+        # print(L)
+        # print(R)
         for tokens in self._F:
             if len(tokens) == n - 1:
                 j = tokens
@@ -234,25 +243,32 @@ def calc_ppl(text, model:NGramModel):
     return math.exp(-avg_log_p)
 
 if __name__ == '__main__':
-    '''
+    
     paths = ['./hw1_dataset/train_set.txt', './hw1_dataset/dev_set.txt']
+    
     corpus = []
     for path in paths:
         with open(path, 'r', encoding='utf8') as f:
             corpus += f.read().strip().split()
-    model = MacKayNGramModel(2)
+    # model = MacKayNGramModel(2)
     model = MacKayNGramModel(2)
     model.build(text=corpus)
     '''
-    paths = ['./hw1_dataset/train_set.txt', './hw1_dataset/dev_set.txt']
+    # paths = ['./hw1_dataset/train_set.txt', './hw1_dataset/dev_set.txt']
     with open(paths[0], 'r', encoding='utf8') as f:
         train = ['<s>'] + f.read().strip().split() + ['<s/>']
     with open(paths[1], 'r', encoding='utf8') as f:
         dev = ['<s>'] + f.read().strip().split() + ['<s/>']
+
     model = InterpolationNGramModel(2)
     model.build(train=train, dev=dev)
-    test_path = './hw1_dataset/train_set.txt'
+    '''
+    test_path = './hw1_dataset/test_set.txt'
     with open(test_path, 'r', encoding='utf8') as f:
         test_text = ['<s>'] + f.read().strip().split() + ['<s/>']
+        # print(test_text)
     print(calc_ppl(test_text, model))
     
+    while True:
+        text = ['<s>'] + input().strip().split() + ['<s/>']
+        print(calc_ppl(text, model))
