@@ -14,6 +14,12 @@ class NGramModel:
     def get_log_P(self, tokens):
         raise NotImplementedError
 
+    def export_model(self, path):
+        raise NotImplementedError
+
+    def load_model(self, path):
+        raise NotImplementedError
+
 class MacKayNGramModel(NGramModel):
     def __init__(self, n=2):
         assert (n > 1)
@@ -245,13 +251,13 @@ def calc_ppl(text, model:NGramModel):
 if __name__ == '__main__':
     
     paths = ['./hw1_dataset/train_set.txt', './hw1_dataset/dev_set.txt']
-    
+    '''
     corpus = []
     for path in paths:
         with open(path, 'r', encoding='utf8') as f:
             corpus += f.read().strip().split()
     # model = MacKayNGramModel(2)
-    model = MacKayNGramModel(2)
+    model = MacKayNGramModel(3)
     model.build(text=corpus)
     '''
     # paths = ['./hw1_dataset/train_set.txt', './hw1_dataset/dev_set.txt']
@@ -260,15 +266,16 @@ if __name__ == '__main__':
     with open(paths[1], 'r', encoding='utf8') as f:
         dev = ['<s>'] + f.read().strip().split() + ['<s/>']
 
-    model = InterpolationNGramModel(2)
+    model = InterpolationNGramModel(3)
     model.build(train=train, dev=dev)
-    '''
+    
     test_path = './hw1_dataset/test_set.txt'
     with open(test_path, 'r', encoding='utf8') as f:
         test_text = ['<s>'] + f.read().strip().split() + ['<s/>']
         # print(test_text)
     print(calc_ppl(test_text, model))
-    
+    '''
     while True:
         text = ['<s>'] + input().strip().split() + ['<s/>']
         print(calc_ppl(text, model))
+    '''
