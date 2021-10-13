@@ -3,6 +3,7 @@ import numpy as np
 from tqdm import tqdm 
 import pdb
 import random
+import json
 
 class NGramModel:
     def __init__(self, n):
@@ -128,6 +129,22 @@ class MacKayNGramModel(NGramModel):
         p = lambda_j * self._u.get(i, 0) / self.alpha + (1 - lambda_j) * f_i_j
         return math.log(max(p, eps))
 
+    def export_model(self, path):
+        obj = dict()
+        obj['vocab'] = self._vocab
+        obj['lambda'] = self._lambda_j
+        obj['F'] = self._F 
+        with open(path, 'w', encoding='utf8') as f:
+            json.dump(obj, f, ensure_ascii=False)
+
+    def load_model(self, path):
+        with open(path, 'r', encoding='utf8') as f:
+            obj = json.load(f)
+        self._vocab = obj['vocab']
+        self._lambda_j = obj['lambda']
+        self._F = obj['F']
+
+
 class InterpolationNGramModel(NGramModel):
     def __init__(self, n):
         assert (n > 1)
@@ -231,6 +248,22 @@ class InterpolationNGramModel(NGramModel):
                 self._P[tokens] = lambda_idx * self.get_P(tokens[1:]) + (1.0 - lambda_idx) * f_i_j
                 # print(tokens, self.get_P(tokens[1:]), f_i_j, lambda_idx, self._P[tokens])
 
+    def export_model(self, path):
+        obj = dict()
+        obj['F'] = dict([(' '.join(k), v) for k, v in self._F.items()])
+        obj['P'] = dict([(' '.join(k), v) for k, v in self._P.items()]) 
+        obj['W'] = dict([(' '.join(k), v) for k, v in self._W.items()])
+        with open(path, 'w', encoding='utf8') as f:
+            json.dump(obj, f, ensure_ascii=False)
+
+    def load_model(self, path):
+        with open(path, 'r', encoding='utf8') as f:
+            obj = json.load(f)
+        self._F = dict([(tuple(k.split()), v) for k, v in obj['F']])
+        self._P = dict([(tuple(k.split()), v) for k, v in obj['P']])
+        self._W = dict([(tuple(k.split()), v) for k, v in obj['W']])
+
+
 def count_ngrams(fd, n):
     corpus = fd.read().strip().split()
     _set = set()
@@ -259,6 +292,7 @@ if __name__ == '__main__':
     # model = MacKayNGramModel(2)
     model = MacKayNGramModel(3)
     model.build(text=corpus)
+
     '''
     # paths = ['./hw1_dataset/train_set.txt', './hw1_dataset/dev_set.txt']
     with open(paths[0], 'r', encoding='utf8') as f:
@@ -266,14 +300,16 @@ if __name__ == '__main__':
     with open(paths[1], 'r', encoding='utf8') as f:
         dev = ['<s>'] + f.read().strip().split() + ['<s/>']
 
-    model = InterpolationNGramModel(3)
-    model.build(train=train, dev=dev)
+    # model = InterpolationNGramModel(3)
+    # model.build(train=train, dev=dev)
     
+
     test_path = './hw1_dataset/test_set.txt'
     with open(test_path, 'r', encoding='utf8') as f:
         test_text = ['<s>'] + f.read().strip().split() + ['<s/>']
         # print(test_text)
     print(calc_ppl(test_text, model))
+    
     '''
     while True:
         text = ['<s>'] + input().strip().split() + ['<s/>']
