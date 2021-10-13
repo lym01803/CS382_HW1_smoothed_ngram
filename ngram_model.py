@@ -300,8 +300,8 @@ if __name__ == '__main__':
     with open(paths[1], 'r', encoding='utf8') as f:
         dev = ['<s>'] + f.read().strip().split() + ['<s/>']
 
-    # model = InterpolationNGramModel(3)
-    # model.build(train=train, dev=dev)
+    model = InterpolationNGramModel(3)
+    model.build(train=train, dev=dev)
     
 
     test_path = './hw1_dataset/test_set.txt'
