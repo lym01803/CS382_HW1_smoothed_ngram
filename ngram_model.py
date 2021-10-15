@@ -281,6 +281,15 @@ def calc_ppl(text, model:NGramModel):
     avg_log_p = log_p_sum / token_num
     return math.exp(-avg_log_p)
 
+def low_freq_to_unk(corpus, threshold=5, unk='<unk>'):
+    count = dict() 
+    for token in corpus:
+        if token in count:
+            count[token] += 1
+        else:
+            count[token] = 1
+    return [token if count.get(token, 0) > threshold else unk for token in corpus]
+
 if __name__ == '__main__':
     
     paths = ['./hw1_dataset/train_set.txt', './hw1_dataset/dev_set.txt']
@@ -301,9 +310,9 @@ if __name__ == '__main__':
         dev = ['<s>'] + f.read().strip().split() + ['<s/>']
 
     model = InterpolationNGramModel(3)
+    # model.build(train=low_freq_to_unk(train), dev=low_freq_to_unk(dev))
     model.build(train=train, dev=dev)
     
-
     test_path = './hw1_dataset/test_set.txt'
     with open(test_path, 'r', encoding='utf8') as f:
         test_text = ['<s>'] + f.read().strip().split() + ['<s/>']
