@@ -4,6 +4,7 @@ from tqdm import tqdm
 import pdb
 import random
 import json
+import argparse
 
 class NGramModel:
     def __init__(self, n):
@@ -179,11 +180,8 @@ class InterpolationNGramModel(NGramModel):
             self._smoothing_n(n, dev, eps)
     
     def get_P(self, tokens):
-        # print(tokens)
         tokens = tuple((token if (token,) in self._F else '<unk>') for token in tokens)
-        # print(tokens)
         p = self._P.get(tokens, -1)
-        # print(p)
         if p < 0:
             if len(tokens) > 1:
                 p = self._W.get(tokens[:-1], 1.0) * self.get_P(tokens[1:])
@@ -227,26 +225,17 @@ class InterpolationNGramModel(NGramModel):
             print(max_interval)
             if max_interval < eps:
                 break
-        '''
-        for i in range(len(L)):
-            L[i] += random.random() * 0.2 - 0.1
-            L[i] = max(1e-4, L[i])
-            L[i] = min(1.0 - (1e-4), L[i])
-        '''
-        # print(L)
-        # print(R)
         for tokens in self._F:
             if len(tokens) == n - 1:
                 j = tokens
                 idx = count2idx.get(self._F[j], 0)
-                self._W[j] = L[idx] # log(lambda_idx * m_i + 0) = log(lambda_idx) + log(m_i); log back-off weight
+                self._W[j] = (L[idx] + R[idx]) * 0.5 # log(lambda_idx * m_i + 0) = log(lambda_idx) + log(m_i); log back-off weight
             if len(tokens) == n:
                 j, i = tokens[:-1], tokens[-1]
                 idx = count2idx.get(self._F[j], 0)
-                lambda_idx = L[idx]
+                lambda_idx = (L[idx] + R[idx]) * 0.5
                 f_i_j = self._F.get(tokens) / self._F.get(j)
                 self._P[tokens] = lambda_idx * self.get_P(tokens[1:]) + (1.0 - lambda_idx) * f_i_j
-                # print(tokens, self.get_P(tokens[1:]), f_i_j, lambda_idx, self._P[tokens])
 
     def export_model(self, path):
         obj = dict()
@@ -291,9 +280,47 @@ def low_freq_to_unk(corpus, threshold=5, unk='<unk>'):
     return [token if count.get(token, 0) > threshold else unk for token in corpus]
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--train', required=True)
+    parser.add_argument('--dev')
+    parser.add_argument('--test', required=True)
+    parser.add_argument('--method', default='Interpolation')
+    parser.add_argument('--n', type=int, default=2)
+    parser.add_argument('--unk_threshold', type=int, default=0)
     
-    paths = ['./hw1_dataset/train_set.txt', './hw1_dataset/dev_set.txt']
+    args = parser.parse_args()
+    for k, v in args.__dict__.items():
+        print('{} : {}'.format(k, v))
+    if args.method == 'Interpolation':
+        train_path = args.train
+        dev_path = args.dev 
+        test_path = args.test
+        with open(train_path, 'r', encoding='utf8') as f:
+            train = ['<s>'] + f.read().strip().split() + ['</s>']
+        with open(dev_path, 'r', encoding='utf8') as f:
+            dev = ['<s>'] + f.read().strip().split() + ['</s>']
+        with open(test_path, 'r', encoding='utf8') as f:
+            test = ['<s>'] + f.read().strip().split() + ['</s>']
+        model = InterpolationNGramModel(args.n)
+        model.build(train=low_freq_to_unk(train, threshold=args.unk_threshold), dev=dev)
+        print(calc_ppl(test, model))
+    elif args.method == 'MacKay':
+        train_path = args.train.strip().split()
+        corpus = [] 
+        for path in train_path:
+            with open(path, 'r', encoding='utf8') as f:
+                corpus += ['<s>'] + f.read().strip().split() + ['</s>']
+        with open(args.test, 'r', encoding='utf8') as f:
+            test = ['<s>'] + f.read().strip().split() + ['</s>']
+        model = MacKayNGramModel(args.n)
+        model.build(text=low_freq_to_unk(corpus, threshold=args.unk_threshold))
+        print(calc_ppl(test, model))
+    else:
+        raise NotImplementedError
+
     '''
+    paths = ['./hw1_dataset/train_set.txt', './hw1_dataset/dev_set.txt']
+    
     corpus = []
     for path in paths:
         with open(path, 'r', encoding='utf8') as f:
@@ -302,7 +329,7 @@ if __name__ == '__main__':
     model = MacKayNGramModel(3)
     model.build(text=corpus)
 
-    '''
+    
     # paths = ['./hw1_dataset/train_set.txt', './hw1_dataset/dev_set.txt']
     with open(paths[0], 'r', encoding='utf8') as f:
         train = ['<s>'] + f.read().strip().split() + ['<s/>']
@@ -319,7 +346,7 @@ if __name__ == '__main__':
         # print(test_text)
     print(calc_ppl(test_text, model))
     
-    '''
+    
     while True:
         text = ['<s>'] + input().strip().split() + ['<s/>']
         print(calc_ppl(text, model))
