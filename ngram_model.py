@@ -305,7 +305,7 @@ if __name__ == '__main__':
         model.build(train=low_freq_to_unk(train, threshold=args.unk_threshold), dev=dev)
         print(calc_ppl(test, model))
     elif args.method == 'MacKay':
-        train_path = args.train.strip().split()
+        train_path = args.train.strip().split(',')
         corpus = [] 
         for path in train_path:
             with open(path, 'r', encoding='utf8') as f:
